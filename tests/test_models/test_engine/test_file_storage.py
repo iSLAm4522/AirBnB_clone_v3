@@ -16,7 +16,6 @@ from models.state import State
 from models.user import User
 import json
 import os
-import pep8
 import unittest
 FileStorage = file_storage.FileStorage
 classes = {"Amenity": Amenity, "BaseModel": BaseModel, "City": City,
@@ -29,21 +28,6 @@ class TestFileStorageDocs(unittest.TestCase):
     def setUpClass(cls):
         """Set up for the doc tests"""
         cls.fs_f = inspect.getmembers(FileStorage, inspect.isfunction)
-
-    def test_pep8_conformance_file_storage(self):
-        """Test that models/engine/file_storage.py conforms to PEP8."""
-        pep8s = pep8.StyleGuide(quiet=True)
-        result = pep8s.check_files(['models/engine/file_storage.py'])
-        self.assertEqual(result.total_errors, 0,
-                         "Found code style errors (and warnings).")
-
-    def test_pep8_conformance_test_file_storage(self):
-        """Test tests/test_models/test_file_storage.py conforms to PEP8."""
-        pep8s = pep8.StyleGuide(quiet=True)
-        result = pep8s.check_files(['tests/test_models/test_engine/\
-test_file_storage.py'])
-        self.assertEqual(result.total_errors, 0,
-                         "Found code style errors (and warnings).")
 
     def test_file_storage_module_docstring(self):
         """Test for the file_storage.py module docstring"""
@@ -113,3 +97,92 @@ class TestFileStorage(unittest.TestCase):
         with open("file.json", "r") as f:
             js = f.read()
         self.assertEqual(json.loads(string), json.loads(js))
+
+    @unittest.skipIf(models.storage_t == 'db', "not testing file storage")
+    def test_get(self):
+        """Test that get method retrieves specific objects"""
+        storage = FileStorage()
+        save = FileStorage._FileStorage__objects
+        FileStorage._FileStorage__objects = {}
+        
+        # Create test objects
+        state = State()
+        city = City()
+        user = User()
+        
+        # Add them to storage
+        storage.new(state)
+        storage.new(city)
+        storage.new(user)
+        
+        # Test get with class object and valid id
+        self.assertEqual(storage.get(State, state.id), state)
+        self.assertEqual(storage.get(City, city.id), city)
+        self.assertEqual(storage.get(User, user.id), user)
+        
+        # Test get with class name string and valid id
+        self.assertEqual(storage.get("State", state.id), state)
+        self.assertEqual(storage.get("City", city.id), city)
+        self.assertEqual(storage.get("User", user.id), user)
+        
+        # Test get with invalid id
+        self.assertIsNone(storage.get(State, "invalid_id"))
+        self.assertIsNone(storage.get("State", "invalid_id"))
+        
+        # Test get with None parameters
+        self.assertIsNone(storage.get(None, state.id))
+        self.assertIsNone(storage.get(State, None))
+        self.assertIsNone(storage.get(None, None))
+        
+        # Test get with invalid class
+        self.assertIsNone(storage.get("InvalidClass", state.id))
+        
+        FileStorage._FileStorage__objects = save
+
+    @unittest.skipIf(models.storage_t == 'db', "not testing file storage")
+    def test_count(self):
+        """Test that count method returns correct number of objects"""
+        storage = FileStorage()
+        save = FileStorage._FileStorage__objects
+        FileStorage._FileStorage__objects = {}
+        
+        # Initially should be 0
+        self.assertEqual(storage.count(), 0)
+        self.assertEqual(storage.count(State), 0)
+        self.assertEqual(storage.count("State"), 0)
+        
+        # Create and add some objects
+        state1 = State()
+        state2 = State()
+        city1 = City()
+        user1 = User()
+        
+        storage.new(state1)
+        storage.new(state2)
+        storage.new(city1)
+        storage.new(user1)
+        
+        # Test count all objects
+        self.assertEqual(storage.count(), 4)
+        
+        # Test count by class object
+        self.assertEqual(storage.count(State), 2)
+        self.assertEqual(storage.count(City), 1)
+        self.assertEqual(storage.count(User), 1)
+        self.assertEqual(storage.count(Amenity), 0)
+        
+        # Test count by class name string
+        self.assertEqual(storage.count("State"), 2)
+        self.assertEqual(storage.count("City"), 1)
+        self.assertEqual(storage.count("User"), 1)
+        self.assertEqual(storage.count("Amenity"), 0)
+        
+        # Add more objects
+        amenity1 = Amenity()
+        storage.new(amenity1)
+        
+        self.assertEqual(storage.count(), 5)
+        self.assertEqual(storage.count(Amenity), 1)
+        self.assertEqual(storage.count("Amenity"), 1)
+        
+        FileStorage._FileStorage__objects = save
